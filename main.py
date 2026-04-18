@@ -10,7 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- CONFIGURATION ---
 API_TOKEN = '8721694709:AAFV48QMKlq0No2a6xz10fcSyUawHRjwg-I'
-CHANNEL_ID = '-1003713449715' 
+CHANNEL_ID = '@CoinFlowRewards' 
 ADMIN_ID = 7371738152 
 
 COMMUNITY_NAME = 'CoinFlow' 
