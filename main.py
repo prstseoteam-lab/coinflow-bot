@@ -16,8 +16,8 @@ ADMIN_ID = 7371738152
 COMMUNITY_NAME = 'CoinFlow' 
 
 # Сайты для поиска
-TARGET_SITE_DOMAIN = 'example-casino.com' 
-TARGET_SITE_DOMAIN_2 = 'example-casino.com' 
+TARGET_SITE_DOMAIN = 'byjanil.com' 
+TARGET_SITE_DOMAIN_2 = 'recoup.dk' 
 
 # Рандомайзеры
 SUPPORTS = ["Rachel", "Alex", "Jordan", "Sarah", "Mike", "Linda", "Kevin", "Emma"]
@@ -109,7 +109,8 @@ async def check_sub(call: types.CallbackQuery):
                 f"5️⃣ Give **1 STAR** ⭐\n"
                 f"6️⃣ Write 2-3 lines of negative text.\n\n"
                 f"⚠️ **REQUIRED RULE:**\n"
-                f"Write that you are still waiting for your withdrawal for **{wait_time}**.\n"
+                f"Mention that you are still waiting for your withdrawal for **{wait_time}**.\n"
+                f"🚫 **DO NOT WRITE THE EXAMPLE TEXT!** Use your own words.\n\n"
                 f"7️⃣ Send a **SCREENSHOT** of your review! 📸"
             )
         
