@@ -8,35 +8,35 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# --- КОНФИГУРАЦИЯ ---
+# --- CONFIGURATION ---
 API_TOKEN = '8721694709:AAFV48QMKlq0No2a6xz10fcSyUawHRjwg-I'
 CHANNEL_ID = '-1003713449715' 
-ADMIN_ID = 7371738152  # !!! ВСТАВЬ СВОЙ ID (цифрами, без кавычек) !!!
+ADMIN_ID = 7371738152 
 
 BRAND_NAME = 'CoinFlow'
-TRUSTPILOT_URL = 'https://www.trustpilot.com/review/example.com' # Ссылка на бренд
-REQUIRED_STARS = '5 STARS' # Сколько звезд просим
-CUSTOM_INSTRUCTION = 'Search for our brand in Google first, then write a review.' # Твоя инструкция
+BRAND_WEBSITE = 'example.com' 
 
+# Рандомайзеры
 SUPPORTS = ["Rachel", "Alex", "Jordan", "Sarah", "Mike", "Linda", "Kevin", "Emma"]
+WAIT_TIMES = ["24 hours", "48 hours", "2 days", "3 days", "36 hours", "over 24h"]
 
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 logging.basicConfig(level=logging.INFO)
 
-# --- БАЗА ДАННЫХ ---
+# --- DATABASE ---
 conn = sqlite3.connect('users.db', check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''CREATE TABLE IF NOT EXISTS users 
-                  (user_id INTEGER PRIMARY KEY, support_name TEXT, tp_nick TEXT, status TEXT)''')
+                  (user_id INTEGER PRIMARY KEY, task_type TEXT, support_name TEXT, wait_time TEXT, tp_nick TEXT, status TEXT)''')
 conn.commit()
 
 class ReportState(StatesGroup):
     waiting_for_nick = State()
     waiting_for_photo = State()
 
-# --- ЛОГИКА ---
+# --- LOGIC ---
 
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
@@ -51,21 +51,45 @@ async def cmd_start(message: types.Message):
 async def check_sub(call: types.CallbackQuery):
     status = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=call.from_user.id)
     if status.status != 'left':
+        # Рандомим тип задачи (50/50 или как захочешь)
+        task_type = random.choice(['5_star', '1_star'])
         agent = random.choice(SUPPORTS)
-        cursor.execute("INSERT OR REPLACE INTO users (user_id, support_name, status) VALUES (?, ?, ?)", 
-                       (call.from_user.id, agent, 'started'))
+        wait_time = random.choice(WAIT_TIMES)
+        
+        cursor.execute("INSERT OR REPLACE INTO users (user_id, task_type, support_name, wait_time, status) VALUES (?, ?, ?, ?, ?)", 
+                       (call.from_user.id, task_type, agent, wait_time, 'started'))
         conn.commit()
 
-        text = (
-            f"✅ **Mission Unlocked!**\n\n"
-            f"🌟 **Target:** Rate us **{REQUIRED_STARS}**\n"
-            f"🔗 **Link:** {TRUSTPILOT_URL}\n\n"
-            f"📜 **Instruction:** {CUSTOM_INSTRUCTION}\n\n"
-            f"👤 **Agent to mention:** `{agent}`\n\n"
-            f"Click below to send your proof!"
-        )
+        if task_type == '5_star':
+            # ИНСТРУКЦИЯ ДЛЯ 5 ЗВЕЗД
+            mission_text = (
+                f"🌟 **YOUR EASY MISSION** 🌟\n\n"
+                f"**Step 1:** Go to our site 👉 **{BRAND_WEBSITE}**\n"
+                f"**Step 2:** Find the **Trustpilot icon** and click it! 🖱\n"
+                f"**Step 3:** Give us **5 STARS** ⭐⭐⭐⭐⭐\n"
+                f"**Step 4:** Write 2-4 lines of nice text.\n\n"
+                f"❗ **IMPORTANT RULE:**\n"
+                f"You MUST say 'Thank you' to our agent **{agent}** in your review.\n\n"
+                f"💡 *Example (DON'T COPY): {agent} was very helpful with my deposit! Thanks!* \n"
+                f"❌ **DO NOT COPY** the example! Write your own words.\n\n"
+                f"**Step 5:** Take a **SCREENSHOT** of your review and send it here! 📸"
+            )
+        else:
+            # ИНСТРУКЦИЯ ДЛЯ 1 ЗВЕЗДЫ
+            mission_text = (
+                f"🌟 **YOUR EASY MISSION** 🌟\n\n"
+                f"**Step 1:** Go to our site 👉 **{BRAND_WEBSITE}**\n"
+                f"**Step 2:** Find the **Trustpilot icon** and click it! 🖱\n"
+                f"**Step 3:** Give us **1 STAR** ⭐\n"
+                f"**Step 4:** Write a short angry text (2-3 lines).\n\n"
+                f"❗ **IMPORTANT RULE:**\n"
+                f"Write that you are still waiting for your money for **{wait_time}**.\n\n"
+                f"⚠️ **DO NOT mention any agent names!** Just talk about the waiting time.\n\n"
+                f"**Step 5:** Take a **SCREENSHOT** of your review and send it here! 📸"
+            )
+        
         kb = InlineKeyboardMarkup().add(InlineKeyboardButton("📤 SUBMIT PROOF", callback_data="start_report"))
-        await call.message.edit_text(text, reply_markup=kb, parse_mode="Markdown", disable_web_page_preview=True)
+        await call.message.edit_text(mission_text, reply_markup=kb, parse_mode="Markdown", disable_web_page_preview=True)
     else:
         await call.answer("❌ Join channel first!", show_alert=True)
 
@@ -78,34 +102,37 @@ async def start_report(call: types.CallbackQuery):
 async def process_nick(message: types.Message, state: FSMContext):
     await state.update_data(nick=message.text)
     await ReportState.next()
-    await message.answer("📸 Upload your **Screenshot**:")
+    await message.answer("📸 Upload your **Screenshot** (from 'My Reviews' section):")
 
 @dp.message_handler(content_types=['photo'], state=ReportState.waiting_for_photo)
 async def process_photo(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
-    agent_data = cursor.execute("SELECT support_name FROM users WHERE user_id = ?", (message.from_user.id,)).fetchone()
-    agent = agent_data[0] if agent_data else "Unknown"
+    
+    # Достаем данные юзера из БД для отчета
+    db_data = cursor.execute("SELECT task_type, support_name, wait_time FROM users WHERE user_id = ?", (message.from_user.id,)).fetchone()
+    task_type, agent, wait_time = db_data if db_data else ("Unknown", "Unknown", "Unknown")
 
-    # 1. Сохраняем в БД
     cursor.execute("UPDATE users SET tp_nick = ?, status = ? WHERE user_id = ?",
                    (user_data['nick'], 'pending', message.from_user.id))
     conn.commit()
 
-    # 2. ОТПРАВЛЯЕМ ОТЧЕТ ТЕБЕ (АДМИНУ)
+    # Отчет тебе в личку
     admin_text = (
         f"📩 **NEW REVIEW REPORT!**\n\n"
-        f"👤 **User:** @{message.from_user.username} (ID: `{message.from_user.id}`)\n"
+        f"👤 **User:** @{message.from_user.username}\n"
         f"🆔 **TP Nick:** {user_data['nick']}\n"
-        f"👩‍💼 **Assigned Agent:** {agent}\n"
+        f"📊 **Type:** {task_type}\n"
+        f"👩‍💼 **Agent:** {agent if task_type == '5_star' else 'N/A'}\n"
+        f"⏳ **Wait Time:** {wait_time if task_type == '1_star' else 'N/A'}\n"
     )
     
     try:
         await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, parse_mode="Markdown")
     except Exception as e:
-        logging.error(f"Failed to send report to admin: {e}")
+        logging.error(f"Error sending to admin: {e}")
 
     await state.finish()
-    await message.answer("🎯 **Submitted!** Your review is under moderation. Winners are announced in the channel! 🌊")
+    await message.answer("🎯 **Submitted!** Your review is being checked. Results will be in the channel! 🌊")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
