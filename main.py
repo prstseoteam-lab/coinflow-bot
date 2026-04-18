@@ -16,7 +16,7 @@ ADMIN_ID = 7371738152
 COMMUNITY_NAME = 'CoinFlow' 
 
 # Сайты для поиска
-TARGET_DOMAINS = ['byjanil.com', 'recoup.dk', 'domain3.com'] 
+TARGET_DOMAINS = ['activecook.fr', 'trendsforyou.dk', 'miljoehverdag.dk', 'lookamoi.fr', 'lozona.shop', 'eco-world.fr', 'outletsquare.it', 'recoup.dk'] 
 domain_counter = 0 
 
 # Рандомайзеры
