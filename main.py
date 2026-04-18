@@ -141,25 +141,30 @@ async def process_photo(message: types.Message, state: FSMContext):
                    (user_data['nick'], 'pending', message.from_user.id))
     conn.commit()
 
-    # Отчет админу
-    admin_text = (
-        f"📩 **NEW REVIEW SUBMITTED!**\n\n"
-        f"👤 **User:** @{message.from_user.username if message.from_user.username else 'NoUsername'} (ID: `{message.from_user.id}`)\n"
-        f"🆔 **TP Nick:** {user_data['nick']}\n"
-        f"📊 **Type:** {task_type}\n"
-        f"👩‍💼 **Agent:** {agent if task_type == '5_star' else 'N/A'}\n"
-        f"⏳ **Wait Time:** {wait_time if task_type == '1_star' else 'N/A'}\n"
-        f"🌐 **Target Site:** {TARGET_SITE_DOMAIN}"
+  admin_text = (
+        f"📩 <b>NEW REVIEW SUBMITTED!</b>\n\n"
+        f"👤 <b>User:</b> @{message.from_user.username if message.from_user.username else 'NoUsername'} (ID: <code>{message.from_user.id}</code>)\n"
+        f"🆔 <b>TP Nick:</b> {user_data['nick']}\n"
+        f"📊 <b>Type:</b> {task_type}\n"
+        f"👩‍💼 <b>Agent:</b> {agent if task_type == '5_star' else 'N/A'}\n"
+        f"⏳ <b>Wait Time:</b> {wait_time if task_type == '1_star' else 'N/A'}\n"
+        f"🌐 <b>Target Site:</b> {TARGET_SITE_DOMAIN}"
     )
     
     try:
-        await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=admin_text, parse_mode="Markdown")
+        # Пытаемся отправить фото
+        await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=admin_text, parse_mode="HTML")
     except Exception as e:
-        logging.error(f"Error: {e}")
-        await bot.send_message(ADMIN_ID, f"⚠️ Error with photo, info:\n{admin_text}")
+        # Если не вышло, бот напишет в консоль ПОЛНУЮ причину
+        logging.error(f"FULL ERROR INFO: {e}")
+        # И попробует отправить тебе хотя бы текст, чтобы ты знал о проблеме
+        try:
+            await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Photo error, but here is info:\n\n{admin_text}", parse_mode="HTML")
+        except:
+            pass
 
     await state.finish()
-    await message.answer("🎯 **Submitted!** We are checking your review. Please wait for the announcement in the channel! 🌊")
+    await message.answer("🎯 **Submitted!** We are checking your review. Please wait for the announcement! 🌊")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
