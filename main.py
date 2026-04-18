@@ -13,14 +13,13 @@ API_TOKEN = '8721694709:AAFV48QMKlq0No2a6xz10fcSyUawHRjwg-I'
 CHANNEL_ID = '-1003713449715' 
 ADMIN_ID = 7371738152 
 
-# Community Name (for the bot's welcome messages)
 COMMUNITY_NAME = 'CoinFlow' 
 
-# The target website they need to find in Google
+# Сайты для поиска
 TARGET_SITE_DOMAIN = 'example-casino.com' 
 TARGET_SITE_DOMAIN_2 = 'example-casino.com' 
 
-# Randomizers
+# Рандомайзеры
 SUPPORTS = ["Rachel", "Alex", "Jordan", "Sarah", "Mike", "Linda", "Kevin", "Emma"]
 WAIT_TIMES = ["24 hours", "48 hours", "2 days", "3 days", "36 hours", "over 24h", "about 30 hours"]
 
@@ -46,16 +45,29 @@ class ReportState(StatesGroup):
 async def cmd_start(message: types.Message):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(
-        InlineKeyboardButton("🌊 Join Channel", url=f"https://t.me/{CHANNEL_ID[1:]}"),
+        InlineKeyboardButton("🌊 Join Channel", url=f"https://t.me/coinflow_community"),
         InlineKeyboardButton("✅ I HAVE JOINED", callback_data="check_sub")
     )
     await message.answer(f"🌊 **Welcome to the {COMMUNITY_NAME} Reward Hub!**\nJoin our channel to get your mission.", reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query_handler(text="check_sub")
 async def check_sub(call: types.CallbackQuery):
-    status = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=call.from_user.id)
-    if status.status != 'left':
-        # Randomize task type
+    # ПРОВЕРКА: не нажимал ли он уже кнопку?
+    user_data = cursor.execute("SELECT status FROM users WHERE user_id = ?", (call.from_user.id,)).fetchone()
+    
+    if user_data:
+        if user_data[0] == 'started':
+            await call.answer("⚠️ You already have an active mission! Please complete it.", show_alert=True)
+            return
+        elif user_data[0] == 'pending':
+            await call.answer("⏳ Please wait! Your review is already being checked. 🌊", show_alert=True)
+            return
+
+    # Если всё ок, проверяем подписку
+    user_status = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=call.from_user.id)
+    
+    if user_status.status in ['member', 'administrator', 'creator']:
+        # Рандомим задачу
         task_type = random.choice(['5_star', '1_star'])
         agent = random.choice(SUPPORTS)
         wait_time = random.choice(WAIT_TIMES)
@@ -64,14 +76,14 @@ async def check_sub(call: types.CallbackQuery):
                        (call.from_user.id, task_type, agent, wait_time, 'started'))
         conn.commit()
 
-        # Step-by-step instruction builder
+        # Тексты задач на английском (простые)
         common_steps = (
             f"1️⃣ **Go to Google.com**\n"
             f"2️⃣ Search for: `{TARGET_SITE_DOMAIN}`\n"
             f"3️⃣ Find and click on the **{TARGET_SITE_DOMAIN}** website result.\n"
             f"4️⃣ Scroll down on the website, find the **Trustpilot icon/link**, and click it! 🖱\n"
         )
-        # Step-by-step instruction builder
+        
         common_steps_2 = (
             f"1️⃣ **Go to Google.com**\n"
             f"2️⃣ Search for: `{TARGET_SITE_DOMAIN_2}`\n"
@@ -87,7 +99,7 @@ async def check_sub(call: types.CallbackQuery):
                 f"⚠️ **REQUIRED RULE:**\n"
                 f"Mention that agent **{agent}** helped you!\n"
                 f"*(Example: 'Big thanks to {agent} for the help!')*\n\n"
-                f"🚫 **DO NOT COPY** the example! Use your own words.\n\n"
+                f"🚫 **DO NOT WRITE THE EXAMPLE TEXT!** Use your own words.\n\n"
                 f"7️⃣ Send a **SCREENSHOT** of your review! 📸"
             )
         else:
@@ -97,7 +109,7 @@ async def check_sub(call: types.CallbackQuery):
                 f"5️⃣ Give **1 STAR** ⭐\n"
                 f"6️⃣ Write 2-3 lines of negative text.\n\n"
                 f"⚠️ **REQUIRED RULE:**\n"
-                f"Complain that you are waiting for your withdrawal for **{wait_time}** already.\n"
+                f"Write that you are still waiting for your withdrawal for **{wait_time}**.\n"
                 f"7️⃣ Send a **SCREENSHOT** of your review! 📸"
             )
         
@@ -123,14 +135,15 @@ async def process_photo(message: types.Message, state: FSMContext):
     db_data = cursor.execute("SELECT task_type, support_name, wait_time FROM users WHERE user_id = ?", (message.from_user.id,)).fetchone()
     task_type, agent, wait_time = db_data if db_data else ("Unknown", "Unknown", "Unknown")
 
+    # Обновляем статус на pending (проверка)
     cursor.execute("UPDATE users SET tp_nick = ?, status = ? WHERE user_id = ?",
                    (user_data['nick'], 'pending', message.from_user.id))
     conn.commit()
 
-    # Admin report
+    # Отчет админу
     admin_text = (
         f"📩 **NEW REVIEW SUBMITTED!**\n\n"
-        f"👤 **User:** @{message.from_user.username}\n"
+        f"👤 **User:** @{message.from_user.username if message.from_user.username else 'NoUsername'} (ID: `{message.from_user.id}`)\n"
         f"🆔 **TP Nick:** {user_data['nick']}\n"
         f"📊 **Type:** {task_type}\n"
         f"👩‍💼 **Agent:** {agent if task_type == '5_star' else 'N/A'}\n"
@@ -139,12 +152,13 @@ async def process_photo(message: types.Message, state: FSMContext):
     )
     
     try:
-        await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, parse_mode="Markdown")
+        await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=admin_text, parse_mode="Markdown")
     except Exception as e:
         logging.error(f"Error: {e}")
+        await bot.send_message(ADMIN_ID, f"⚠️ Error with photo, info:\n{admin_text}")
 
     await state.finish()
-    await message.answer("🎯 **Submitted!** We will verify your review. Check the channel for winners! 🌊")
+    await message.answer("🎯 **Submitted!** We are checking your review. Please wait for the announcement in the channel! 🌊")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
