@@ -17,10 +17,9 @@ COMMUNITY_NAME = 'CoinFlow'
 
 # Сайты для поиска
 TARGET_DOMAINS = ['byjanil.com', 'recoup.dk', 'domain3.com'] 
-domain_counter = 0 # Счетчик для чередования
+domain_counter = 0 
 
 # Рандомайзеры
-SUPPORTS = ["Rachel", "Alex", "Jordan", "Sarah", "Mike", "Linda", "Kevin", "Emma"]
 WAIT_TIMES = ["24 hours", "48 hours", "2 days", "3 days", "36 hours", "over 24h", "about 30 hours"]
 
 bot = Bot(token=API_TOKEN)
@@ -48,10 +47,11 @@ async def cmd_start(message: types.Message):
         InlineKeyboardButton("🌊 Join Channel", url=f"https://t.me/CoinFlowRewards"),
         InlineKeyboardButton("✅ I HAVE JOINED", callback_data="check_sub")
     )
-    await message.answer(f"🌊 **Welcome to the {COMMUNITY_NAME} Reward Hub!**\nJoin our channel to get your mission.", reply_markup=kb, parse_mode="Markdown")
+    await message.answer(f"👋 **Welcome to {COMMUNITY_NAME} Lottery!**\n\nWant to win **$50 USDT**? 💰\n\n1️⃣ Join our channel\n2️⃣ Complete one simple task\n3️⃣ Get your lottery ticket!\n\n👇 **Click the button to start:**", reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query_handler(text="check_sub")
 async def check_sub(call: types.CallbackQuery):
+    global domain_counter
     # ПРОВЕРКА: не нажимал ли он уже кнопку?
     user_data = cursor.execute("SELECT status FROM users WHERE user_id = ?", (call.from_user.id,)).fetchone()
     
@@ -63,25 +63,22 @@ async def check_sub(call: types.CallbackQuery):
             await call.answer("⏳ Please wait! Your review is already being checked. 🌊", show_alert=True)
             return
 
-    # Если всё ок, проверяем подписку
-if user_status.status in ['member', 'administrator', 'creator']:
-        global domain_counter
+    # Проверка подписки
+    user_status = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=call.from_user.id)
+    
+    if user_status.status in ['member', 'administrator', 'creator']:
         # Берем домен по очереди
         current_domain = TARGET_DOMAINS[domain_counter % len(TARGET_DOMAINS)]
         domain_counter += 1
         
         wait_time = random.choice(WAIT_TIMES)
         
-        # Записываем в базу (task_type теперь всегда 1_star)
+        # Записываем в базу
         cursor.execute("INSERT OR REPLACE INTO users (user_id, task_type, target_domain, wait_time, status) VALUES (?, ?, ?, ?, ?)", 
                        (call.from_user.id, '1_star', current_domain, wait_time, 'started'))
         conn.commit()
-        
-        cursor.execute("INSERT OR REPLACE INTO users (user_id, task_type, support_name, wait_time, status) VALUES (?, ?, ?, ?, ?)", 
-                       (call.from_user.id, task_type, agent, wait_time, 'started'))
-        conn.commit()
 
-   mission_text = (
+        mission_text = (
             f"🎰 **YOUR LOTTERY MISSION** 🎰\n\n"
             f"1️⃣ **Go to Google.com**\n"
             f"2️⃣ Search for: `{current_domain}`\n"
@@ -116,27 +113,23 @@ async def process_photo(message: types.Message, state: FSMContext):
     db_data = cursor.execute("SELECT target_domain, wait_time FROM users WHERE user_id = ?", (message.from_user.id,)).fetchone()
     target_domain, wait_time = db_data if db_data else ("Unknown", "Unknown")
 
-    # Обновляем статус на pending (проверка)
     cursor.execute("UPDATE users SET tp_nick = ?, status = ? WHERE user_id = ?",
                    (user_data['nick'], 'pending', message.from_user.id))
     conn.commit()
 
-  admin_text = (
+    admin_text = (
         f"📩 <b>NEW REVIEW SUBMITTED!</b>\n\n"
         f"👤 <b>User:</b> @{message.from_user.username if message.from_user.username else 'NoUsername'} (ID: <code>{message.from_user.id}</code>)\n"
         f"🆔 <b>TP Nick:</b> {user_data['nick']}\n"
-        f"👩‍💼 <b>Agent:</b> {agent if task_type == '5_star' else 'N/A'}\n"
-        f"⏳ <b>Wait Time:</b> {wait_time if task_type == '1_star' else 'N/A'}\n"
-        f"🌐 <b>Target Site:</b> {TARGET_SITE_DOMAIN}"
+        f"📊 <b>Type:</b> 1 STAR\n"
+        f"⏳ <b>Wait Time:</b> {wait_time}\n"
+        f"🌐 <b>Target Site:</b> {target_domain}"
     )
     
     try:
-        # Пытаемся отправить фото
         await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, caption=admin_text, parse_mode="HTML")
     except Exception as e:
-        # Если не вышло, бот напишет в консоль ПОЛНУЮ причину
         logging.error(f"FULL ERROR INFO: {e}")
-        # И попробует отправить тебе хотя бы текст, чтобы ты знал о проблеме
         try:
             await bot.send_message(chat_id=ADMIN_ID, text=f"⚠️ Photo error, but here is info:\n\n{admin_text}", parse_mode="HTML")
         except:
