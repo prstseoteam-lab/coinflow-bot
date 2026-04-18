@@ -13,12 +13,16 @@ API_TOKEN = '8721694709:AAFV48QMKlq0No2a6xz10fcSyUawHRjwg-I'
 CHANNEL_ID = '-1003713449715' 
 ADMIN_ID = 7371738152 
 
-BRAND_NAME = 'CoinFlow'
-BRAND_WEBSITE = 'example.com' 
+# Community Name (for the bot's welcome messages)
+COMMUNITY_NAME = 'CoinFlow' 
 
-# Рандомайзеры
+# The target website they need to find in Google
+TARGET_SITE_DOMAIN = 'example-casino.com' 
+TARGET_SITE_DOMAIN_2 = 'example-casino.com' 
+
+# Randomizers
 SUPPORTS = ["Rachel", "Alex", "Jordan", "Sarah", "Mike", "Linda", "Kevin", "Emma"]
-WAIT_TIMES = ["24 hours", "48 hours", "2 days", "3 days", "36 hours", "over 24h"]
+WAIT_TIMES = ["24 hours", "48 hours", "2 days", "3 days", "36 hours", "over 24h", "about 30 hours"]
 
 bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
@@ -45,13 +49,13 @@ async def cmd_start(message: types.Message):
         InlineKeyboardButton("🌊 Join Channel", url=f"https://t.me/{CHANNEL_ID[1:]}"),
         InlineKeyboardButton("✅ I HAVE JOINED", callback_data="check_sub")
     )
-    await message.answer(f"🌊 **Welcome to {BRAND_NAME}!**\nJoin our channel to unlock missions.", reply_markup=kb, parse_mode="Markdown")
+    await message.answer(f"🌊 **Welcome to the {COMMUNITY_NAME} Reward Hub!**\nJoin our channel to get your mission.", reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query_handler(text="check_sub")
 async def check_sub(call: types.CallbackQuery):
     status = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=call.from_user.id)
     if status.status != 'left':
-        # Рандомим тип задачи (50/50 или как захочешь)
+        # Randomize task type
         task_type = random.choice(['5_star', '1_star'])
         agent = random.choice(SUPPORTS)
         wait_time = random.choice(WAIT_TIMES)
@@ -60,38 +64,47 @@ async def check_sub(call: types.CallbackQuery):
                        (call.from_user.id, task_type, agent, wait_time, 'started'))
         conn.commit()
 
+        # Step-by-step instruction builder
+        common_steps = (
+            f"1️⃣ **Go to Google.com**\n"
+            f"2️⃣ Search for: `{TARGET_SITE_DOMAIN}`\n"
+            f"3️⃣ Find and click on the **{TARGET_SITE_DOMAIN}** website result.\n"
+            f"4️⃣ Scroll down on the website, find the **Trustpilot icon/link**, and click it! 🖱\n"
+        )
+        # Step-by-step instruction builder
+        common_steps_2 = (
+            f"1️⃣ **Go to Google.com**\n"
+            f"2️⃣ Search for: `{TARGET_SITE_DOMAIN_2}`\n"
+            f"3️⃣ Find and click on the **{TARGET_SITE_DOMAIN_2}** TrustPilot Page result.\n"
+        )
+
         if task_type == '5_star':
-            # ИНСТРУКЦИЯ ДЛЯ 5 ЗВЕЗД
             mission_text = (
-                f"🌟 **YOUR EASY MISSION** 🌟\n\n"
-                f"**Step 1:** Go to our site 👉 **{BRAND_WEBSITE}**\n"
-                f"**Step 2:** Find the **Trustpilot icon** and click it! 🖱\n"
-                f"**Step 3:** Give us **5 STARS** ⭐⭐⭐⭐⭐\n"
-                f"**Step 4:** Write 2-4 lines of nice text.\n\n"
-                f"❗ **IMPORTANT RULE:**\n"
-                f"You MUST say 'Thank you' to our agent **{agent}** in your review.\n\n"
-                f"💡 *Example (DON'T COPY): {agent} was very helpful with my deposit! Thanks!* \n"
-                f"❌ **DO NOT COPY** the example! Write your own words.\n\n"
-                f"**Step 5:** Take a **SCREENSHOT** of your review and send it here! 📸"
+                f"🌟 **YOUR MISSION (5 STARS)** 🌟\n\n"
+                f"{common_steps}"
+                f"5️⃣ Give **5 STARS** ⭐⭐⭐⭐⭐\n"
+                f"6️⃣ Write 2-4 lines of positive text.\n\n"
+                f"⚠️ **REQUIRED RULE:**\n"
+                f"Mention that agent **{agent}** helped you!\n"
+                f"*(Example: 'Big thanks to {agent} for the help!')*\n\n"
+                f"🚫 **DO NOT COPY** the example! Use your own words.\n\n"
+                f"7️⃣ Send a **SCREENSHOT** of your review! 📸"
             )
         else:
-            # ИНСТРУКЦИЯ ДЛЯ 1 ЗВЕЗДЫ
             mission_text = (
-                f"🌟 **YOUR EASY MISSION** 🌟\n\n"
-                f"**Step 1:** Go to our site 👉 **{BRAND_WEBSITE}**\n"
-                f"**Step 2:** Find the **Trustpilot icon** and click it! 🖱\n"
-                f"**Step 3:** Give us **1 STAR** ⭐\n"
-                f"**Step 4:** Write a short angry text (2-3 lines).\n\n"
-                f"❗ **IMPORTANT RULE:**\n"
-                f"Write that you are still waiting for your money for **{wait_time}**.\n\n"
-                f"⚠️ **DO NOT mention any agent names!** Just talk about the waiting time.\n\n"
-                f"**Step 5:** Take a **SCREENSHOT** of your review and send it here! 📸"
+                f"🌟 **YOUR MISSION (1 STAR)** 🌟\n\n"
+                f"{common_steps_2}"
+                f"5️⃣ Give **1 STAR** ⭐\n"
+                f"6️⃣ Write 2-3 lines of negative text.\n\n"
+                f"⚠️ **REQUIRED RULE:**\n"
+                f"Complain that you are waiting for your withdrawal for **{wait_time}** already.\n"
+                f"7️⃣ Send a **SCREENSHOT** of your review! 📸"
             )
         
         kb = InlineKeyboardMarkup().add(InlineKeyboardButton("📤 SUBMIT PROOF", callback_data="start_report"))
         await call.message.edit_text(mission_text, reply_markup=kb, parse_mode="Markdown", disable_web_page_preview=True)
     else:
-        await call.answer("❌ Join channel first!", show_alert=True)
+        await call.answer("❌ Please join our channel first!", show_alert=True)
 
 @dp.callback_query_handler(text="start_report")
 async def start_report(call: types.CallbackQuery):
@@ -102,13 +115,11 @@ async def start_report(call: types.CallbackQuery):
 async def process_nick(message: types.Message, state: FSMContext):
     await state.update_data(nick=message.text)
     await ReportState.next()
-    await message.answer("📸 Upload your **Screenshot** (from 'My Reviews' section):")
+    await message.answer("📸 Upload a **Screenshot** of your review (Go to 'My Reviews' section):")
 
 @dp.message_handler(content_types=['photo'], state=ReportState.waiting_for_photo)
 async def process_photo(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
-    
-    # Достаем данные юзера из БД для отчета
     db_data = cursor.execute("SELECT task_type, support_name, wait_time FROM users WHERE user_id = ?", (message.from_user.id,)).fetchone()
     task_type, agent, wait_time = db_data if db_data else ("Unknown", "Unknown", "Unknown")
 
@@ -116,23 +127,24 @@ async def process_photo(message: types.Message, state: FSMContext):
                    (user_data['nick'], 'pending', message.from_user.id))
     conn.commit()
 
-    # Отчет тебе в личку
+    # Admin report
     admin_text = (
-        f"📩 **NEW REVIEW REPORT!**\n\n"
+        f"📩 **NEW REVIEW SUBMITTED!**\n\n"
         f"👤 **User:** @{message.from_user.username}\n"
         f"🆔 **TP Nick:** {user_data['nick']}\n"
         f"📊 **Type:** {task_type}\n"
         f"👩‍💼 **Agent:** {agent if task_type == '5_star' else 'N/A'}\n"
         f"⏳ **Wait Time:** {wait_time if task_type == '1_star' else 'N/A'}\n"
+        f"🌐 **Target Site:** {TARGET_SITE_DOMAIN}"
     )
     
     try:
         await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_text, parse_mode="Markdown")
     except Exception as e:
-        logging.error(f"Error sending to admin: {e}")
+        logging.error(f"Error: {e}")
 
     await state.finish()
-    await message.answer("🎯 **Submitted!** Your review is being checked. Results will be in the channel! 🌊")
+    await message.answer("🎯 **Submitted!** We will verify your review. Check the channel for winners! 🌊")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
