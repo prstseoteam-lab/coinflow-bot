@@ -10,7 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- CONFIGURATION ---
 API_TOKEN = '8721694709:AAFV48QMKlq0No2a6xz10fcSyUawHRjwg-I'
-CHANNEL_ID = '@CoinFlowRewards' 
+CHANNEL_ID = '-1003713449715' 
 ADMIN_ID = 7371738152 
 
 COMMUNITY_NAME = 'CoinFlow' 
@@ -45,7 +45,7 @@ class ReportState(StatesGroup):
 async def cmd_start(message: types.Message):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(
-        InlineKeyboardButton("🌊 Join Channel", url=f"https://t.me/coinflow_community"),
+        InlineKeyboardButton("🌊 Join Channel", url=f"https://t.me/CoinFlowRewards"),
         InlineKeyboardButton("✅ I HAVE JOINED", callback_data="check_sub")
     )
     await message.answer(f"🌊 **Welcome to the {COMMUNITY_NAME} Reward Hub!**\nJoin our channel to get your mission.", reply_markup=kb, parse_mode="Markdown")
